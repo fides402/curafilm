@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
 const SUGGESTIONS = [
-  'tensione che non molla, ogni scena mi trascina avanti',
-  'qualcosa di lento e visivo, un'atmosfera in cui perdermi',
-  'un mistero che si apre piano, non voglio sapere tutto subito',
-  'un mondo da scoprire, qualcosa di denso e costruito',
-  'sorprendimi con qualcosa che non avrei scelto da solo',
+  "tensione che non molla, ogni scena mi trascina avanti",
+  "qualcosa di lento e visivo, atmosfera in cui perdermi",
+  "un mistero che si apre piano, non voglio sapere tutto subito",
+  "un mondo da scoprire, qualcosa di denso e costruito",
+  "sorprendimi con qualcosa che non avrei scelto da solo",
 ];
 
 export default function ExperienceSelector({ onSelect, error }) {
@@ -24,10 +24,6 @@ export default function ExperienceSelector({ onSelect, error }) {
     }
   };
 
-  const useSuggestion = (s) => {
-    setText(s);
-  };
-
   const canSubmit = text.trim().length >= 3;
 
   return (
@@ -36,14 +32,14 @@ export default function ExperienceSelector({ onSelect, error }) {
         <div>
           <h2 className="experience-question">cosa vuoi vivere stasera?</h2>
           <p className="experience-sub">
-            descrivi liberamente — una sensazione, un'atmosfera, un desiderio narrativo
+            descrivi liberamente &mdash; una sensazione, atmosfera, desiderio narrativo
           </p>
         </div>
 
         <div className="exp-input-block">
           <textarea
             className="exp-textarea"
-            placeholder="es. tensione che non molla, voglio essere trascinato avanti scena dopo scena…"
+            placeholder="es. tensione che non molla, voglio essere trascinato avanti scena dopo scena..."
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKey}
@@ -51,25 +47,25 @@ export default function ExperienceSelector({ onSelect, error }) {
             autoFocus
           />
           <div className="exp-input-footer">
-            <span className="exp-hint-key">↵ invio per cercare</span>
+            <span className="exp-hint-key">invio per cercare</span>
             <button
               className="btn-primary"
               onClick={handleSubmit}
               disabled={!canSubmit}
             >
-              trova →
+              trova
             </button>
           </div>
         </div>
 
         <div className="suggestions-block">
-          <p className="suggestions-label">oppure scegli un'idea</p>
+          <p className="suggestions-label">oppure scegli un idea</p>
           <div className="suggestions-list">
             {SUGGESTIONS.map((s, i) => (
               <button
                 key={i}
                 className="suggestion-pill"
-                onClick={() => useSuggestion(s)}
+                onClick={() => setText(s)}
               >
                 {s}
               </button>
@@ -77,9 +73,7 @@ export default function ExperienceSelector({ onSelect, error }) {
           </div>
         </div>
 
-        {error && (
-          <p className="msg error">{error}</p>
-        )}
+        {error && <p className="msg error">{error}</p>}
       </div>
     </div>
   );
