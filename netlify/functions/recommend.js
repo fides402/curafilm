@@ -43,10 +43,9 @@ function scoreTitle(t, tv, mv) {
   const moodAlign = 1 - (
     Math.abs(t.mystery_density         - m('desired_mystery'))           +
     Math.abs(t.narrative_tension       - m('desired_tension'))           +
-    Math.abs(t.contemplative_immersion - m('desired_contemplation'))     +
-    Math.abs(t.world_building_depth    - m('desired_world_exploration')) +
+    Math.abs(t.contemplative_immersion - m('desired_contemplation'))  +
     Math.abs(t.first_10_min_hook       - m('desired_hook_speed'))
-  ) / 5;
+  ) / 4;
 
   const confidence = base * 0.60 + moodAlign * 0.40;
   return { ...t, base_score: base, mood_align: moodAlign, confidence };
@@ -54,7 +53,7 @@ function scoreTitle(t, tv, mv) {
 
 // ── Greedy diverse selection ──────────────────────────────────────────────────
 function selectDiverse(pool, n) {
-  const FEAT = ['mystery_density', 'narrative_tension', 'contemplative_immersion', 'world_building_depth', 'first_10_min_hook'];
+  const FEAT = ['mystery_density', 'narrative_tension', 'contemplative_immersion', 'first_10_min_hook', 'atmosphere_strength'];
   const selected = [];
   const remaining = [...pool];
 
@@ -91,12 +90,14 @@ async function fetchPoster(title, year) {
 }
 
 // ── Groq helper ───────────────────────────────────────────────────────────────
-async function groqCall(prompt, temperature, max_tokens) {
+// Use 8b-instant for heavy structured generation (high daily limits, fast)
+// Use 70b only for the short explanation pass (quality matters there)
+async function groqCall(prompt, temperature, max_tokens, model = 'llama-3.1-8b-instant') {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model,
       messages: [{ role: 'user', content: prompt }],
       temperature,
       max_tokens,
@@ -145,29 +146,27 @@ ${excludedTitles}
 SAMPLE OF THEIR TASTE (cultural fluency context only):
 ${profileSummary}
 
-TASK: Generate exactly 24 candidate film/series titles — do NOT include titles from the seen list.
-- 14 classics (year ≤ 2018): varied eras, directors, countries, artistic range
-- 10 recent (year ≥ 2019): include titles from 2022-2025
-- Mix: thriller, sci-fi, noir, drama, horror, auteur, mystery — NO pure comedy
-- Vary directors and countries heavily — no director appearing twice
+TASK: Generate exactly 12 candidate film/series titles (7 classics + 5 recent).
+DO NOT include any title from the seen list above.
+- Classics (year ≤ 2018): varied eras, directors, countries
+- Recent (year ≥ 2019): include 2022-2025 titles
+- Mix: thriller, sci-fi, noir, drama, horror, auteur — NO pure comedy
+- No director appearing twice across the 12 titles
 - Avoid commercial blockbusters without artistic identity
-- Include lesser-known gems alongside recognized titles
-- All titles must actually exist and be real productions
+- All titles must be real productions
 
-For EACH title, provide accurate feature scores (0.00–1.00) based on your film knowledge:
-- premise_strength: originality and strength of the narrative premise
-- mystery_density: pervasive mystery/enigma in the viewing experience
-- narrative_tension: sustained forward pull and plot tension
-- first_10_min_hook: how strongly the opening grabs attention
-- directorial_identity: strong recognizable directorial authorship
-- atmosphere_strength: atmospheric density and immersive quality
-- contemplative_immersion: slow/contemplative quality (high = slow, low = fast-paced)
-- world_building_depth: richness of the world constructed
-- authorial_weight: overall authorial coherence and weight
-- humor_gag_score: comedy/gag presence (low is better for this user)
-- genericness_penalty: how generic/conventional (low is better)
+For EACH title provide 8 feature scores (0.00–1.00):
+- premise_strength: originality and force of the narrative premise
+- mystery_density: pervasive mystery/enigma in the experience
+- narrative_tension: sustained forward pull and tension
+- first_10_min_hook: how strongly the opening grabs (high = immediate hook)
+- directorial_identity: strong recognizable authorial direction
+- atmosphere_strength: atmospheric density and immersion
+- contemplative_immersion: contemplative/slow quality (high = slow, low = fast)
+- humor_gag_score: comedy presence — keep LOW for this user
+- genericness_penalty: how generic/conventional — keep LOW
 
-Return ONLY valid JSON, no markdown, no explanation:
+Return ONLY valid JSON, no markdown:
 {
   "classics": [
     {
@@ -183,8 +182,6 @@ Return ONLY valid JSON, no markdown, no explanation:
       "directorial_identity": 0.00,
       "atmosphere_strength": 0.00,
       "contemplative_immersion": 0.00,
-      "world_building_depth": 0.00,
-      "authorial_weight": 0.00,
       "humor_gag_score": 0.00,
       "genericness_penalty": 0.00
     }
@@ -192,7 +189,8 @@ Return ONLY valid JSON, no markdown, no explanation:
   "recent": [ ... same structure ... ]
 }`;
 
-    const phase1Raw = await groqCall(phase1Prompt, 0.45, 4000);
+    // llama-3.1-8b-instant: high daily limits, fast, good at structured JSON
+    const phase1Raw = await groqCall(phase1Prompt, 0.45, 3000, 'llama-3.1-8b-instant');
     const phase1Match = phase1Raw.match(/\{[\s\S]*\}/);
     if (!phase1Match) throw new Error('candidate generation failed — no JSON in response');
     const candidates = JSON.parse(phase1Match[0]);
@@ -262,7 +260,8 @@ Return ONLY valid JSON:
   ]
 }`;
 
-    const phase3Raw = await groqCall(phase3Prompt, 0.55, 1400);
+    // llama-3.3-70b for explanation quality (short output, token usage low)
+    const phase3Raw = await groqCall(phase3Prompt, 0.55, 1400, 'llama-3.3-70b-versatile');
     const phase3Match = phase3Raw.match(/\{[\s\S]*\}/);
     if (!phase3Match) throw new Error('explanation generation failed');
     const explained = JSON.parse(phase3Match[0]);
