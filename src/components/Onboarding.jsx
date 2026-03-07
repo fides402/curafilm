@@ -126,13 +126,13 @@ export default function Onboarding({ onProfileBuilt }) {
   const fileInputRef = useRef(null);
 
   // ── manual mode helpers ──
-  const titles   = input.split('\n').map(t => t.trim()).filter(Boolean);
-  const count    = titles.length;
-  const tooFew   = count > 0 && count < 5;
-  const tooMany  = count > 25;
+  const titles    = input.split('\n').map(t => t.trim()).filter(Boolean);
+  const count     = titles.length;
+  const tooFew    = count > 0 && count < 5;
+  const manyMore  = count > 25; // will pick top 25 for TMDB, rest stored as watchedTitles
   const canSearch = importMode === 'letterboxd'
     ? parsedFilms !== null
-    : (count >= 5 && count <= 25);
+    : count >= 5;
 
   const foundCount = searchResults.filter(r => r.found).length;
   const canSave    = foundCount >= 3;
@@ -170,7 +170,7 @@ export default function Onboarding({ onProfileBuilt }) {
     setError('');
     const searchTitles = importMode === 'letterboxd'
       ? selectTopTitles(parsedFilms, 25)
-      : titles;
+      : titles.slice(0, 25); // first 25 for TMDB; the rest are stored as watchedTitles
 
     try {
       const res = await fetch('/api/search-movies', {
@@ -195,10 +195,13 @@ export default function Onboarding({ onProfileBuilt }) {
 
   const handleSave = () => {
     const profile = searchResults.filter(r => r.found).map(r => r.data);
-    // Pass all raw Letterboxd titles for exclusion in recommendations
-    const watchedTitles = parsedFilms
-      ? parsedFilms.map(f => ({ title: f.title, year: f.year }))
-      : null;
+    // Pass all raw titles for exclusion in recommendations
+    let watchedTitles = null;
+    if (parsedFilms) {
+      watchedTitles = parsedFilms.map(f => ({ title: f.title, year: f.year }));
+    } else if (titles.length > 25) {
+      watchedTitles = titles.map(t => ({ title: t, year: '' }));
+    }
     onProfileBuilt(profile, watchedTitles);
   };
 
@@ -295,7 +298,7 @@ export default function Onboarding({ onProfileBuilt }) {
           <div className="form-block">
             <label className="form-label">
               quali film e serie ami?
-              <span className="form-hint">uno per riga &nbsp;·&nbsp; da 5 a 25 titoli</span>
+              <span className="form-hint">uno per riga &nbsp;·&nbsp; almeno 5 titoli</span>
             </label>
 
             <textarea
@@ -308,10 +311,10 @@ export default function Onboarding({ onProfileBuilt }) {
             />
 
             <div className="form-footer">
-              <span className={`count-badge${tooFew ? ' warn' : tooMany ? ' bad' : canSearch ? ' ok' : ''}`}>
+              <span className={`count-badge${tooFew ? ' warn' : canSearch ? ' ok' : ''}`}>
                 {count} {count === 1 ? 'titolo' : 'titoli'}
-                {tooFew  && ' — aggiungi almeno 5'}
-                {tooMany && ' — massimo 25'}
+                {tooFew   && ' — aggiungi almeno 5'}
+                {manyMore && ` · analizzo i primi 25, il resto escluso dai consigli`}
               </span>
             </div>
 
