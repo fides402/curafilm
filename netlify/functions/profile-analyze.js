@@ -9,6 +9,32 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+async function groqJSON(prompt, max_tokens, model) {
+  for (let attempt = 0, delay = 2000; attempt < 4; attempt++, delay *= 2) {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens,
+        response_format: { type: 'json_object' },
+      }),
+    });
+    if (res.status === 429) {
+      if (attempt === 3) throw new Error('Groq rate limit: riprova tra qualche minuto');
+      const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
+      await new Promise(r => setTimeout(r, retryAfter > 0 ? retryAfter * 1000 : delay));
+      continue;
+    }
+    const text = await res.text();
+    if (!res.ok) throw new Error(`Groq ${res.status}: ${text}`);
+    return JSON.parse(text).choices?.[0]?.message?.content || '{}';
+  }
+  throw new Error('Groq: max retries exceeded');
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS_HEADERS, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS_HEADERS, body: '' };
@@ -20,79 +46,37 @@ exports.handler = async (event) => {
     }
 
     const profileText = profile
-      .map(m => `• "${m.title}" (${m.year}) dir. ${m.director} | Generi: ${m.genres?.join(', ')} | kw: ${m.keywords?.slice(0, 5).join(', ')}`)
+      .map(m => `• "${m.title}" (${m.year}) — ${m.director} | ${m.genres?.join(', ')}`)
       .join('\n');
 
-    const prompt = `Sei un analista del gusto cinematografico. Analizza questi film/serie che un utente ama profondamente.
+    const prompt = `Sei un critico cinematografico esperto. Analizza questi film amati dall'utente.
 
 FILM AMATI:
 ${profileText}
 
-COMPITO: Estrai il profilo latente del gusto come vettore numerico preciso (0.00-1.00).
-Ogni dimensione deve riflettere realmente cosa emerge dai titoli, non valori generici.
+Scrivi in italiano un profilo del gusto cinematografico di questa persona. Sii specifico su cosa emerge da questi titoli concreti, non generico.
 
-- story_importance: quanto la solidità narrativa è centrale
-- rhythm_importance: quanto il ritmo e la cadenza contano
-- direction_importance: quanto la regia autoriale conta
-- atmosphere_importance: quanto l'atmosfera e l'immersione contano
-- mystery_need: bisogno di mistero, enigma epistemico
-- first_10_min_hook_need: bisogno di essere catturato subito nei primi minuti
-- authorial_quality_need: bisogno di peso e coerenza autoriale
-- comedy_penalty: quanto la comicità/gag disturba (alto = grande disturbo)
-- banality_penalty: quanto la banalità narrativa disturba (alto = grande disturbo)
-- genre_weight: quanto il genere influenza la scelta (basso = va oltre i generi)
-- directorial_identity_need: bisogno di identità registica forte e riconoscibile
-- world_building_affinity: affinità con world-building denso e stratificato
-- contemplative_affinity: affinità con lentezza contemplativa e visiva
-- tension_affinity: affinità con tensione narrativa sostenuta
+Includi nel profilo:
+- Quale tipo di regia apprezza (autoriale, minimalista, barocca, di genere...)
+- Quale tipo di narrazione cerca (enigmatica, tesa, lenta, frammentata, densa...)
+- L'atmosfera prediletta
+- Cosa NON tollera (commedia, blockbuster commerciali, banalità narrativa...)
+- 3 registi che probabilmente amerà ma non sono già presenti nella lista
 
-Restituisci SOLO JSON valido (nessun testo prima o dopo):
+Rispondi con JSON:
 {
-  "story_importance": 0.00,
-  "rhythm_importance": 0.00,
-  "direction_importance": 0.00,
-  "atmosphere_importance": 0.00,
-  "mystery_need": 0.00,
-  "first_10_min_hook_need": 0.00,
-  "authorial_quality_need": 0.00,
-  "comedy_penalty": 0.00,
-  "banality_penalty": 0.00,
-  "genre_weight": 0.00,
-  "directorial_identity_need": 0.00,
-  "world_building_affinity": 0.00,
-  "contemplative_affinity": 0.00,
-  "tension_affinity": 0.00,
-  "preferred_clusters": ["cluster1", "cluster2", "cluster3"]
+  "tasteProfile": "profilo descrittivo in 150-200 parole in italiano",
+  "avoidTraits": ["tratto da evitare 1", "tratto da evitare 2", "tratto da evitare 3"],
+  "referenceDirectors": ["Regista 1", "Regista 2", "Regista 3"]
 }`;
 
-    let data;
-    for (let attempt = 0, delay = 2000; attempt < 4; attempt++, delay *= 2) {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.25,
-          max_tokens: 600,
-        }),
-      });
-      if (res.status === 429) {
-        if (attempt === 3) throw new Error('Groq rate limit: riprova tra qualche minuto');
-        const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
-        await new Promise(r => setTimeout(r, retryAfter > 0 ? retryAfter * 1000 : delay));
-        continue;
-      }
-      if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
-      data = await res.json();
-      break;
-    }
-    const text = data.choices?.[0]?.message?.content || '';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('parse error');
-    const tasteVector = JSON.parse(jsonMatch[0]);
-
-    return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ tasteVector }) };
+    const raw = await groqJSON(prompt, 600, 'llama-3.1-8b-instant');
+    // tasteVector key kept for App.jsx localStorage compatibility
+    return {
+      statusCode: 200,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ tasteVector: JSON.parse(raw) }),
+    };
   } catch (err) {
     console.error('profile-analyze error:', err);
     return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: err.message }) };
