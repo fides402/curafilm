@@ -11,28 +11,74 @@ Twin Peaks
 There Will Be Blood
 ...`;
 
+function ReviewItem({ result, onRemove }) {
+  if (result.found) {
+    const { data } = result;
+    return (
+      <div className="review-item review-item--found">
+        {data.poster_path ? (
+          <img
+            className="review-poster"
+            src={`https://image.tmdb.org/t/p/w92${data.poster_path}`}
+            alt={data.title}
+          />
+        ) : (
+          <div className="review-poster review-poster--empty">
+            {data.title?.[0]}
+          </div>
+        )}
+        <div className="review-info">
+          <span className="review-title">{data.title}</span>
+          <span className="review-meta">
+            {data.year}
+            {data.director ? ` · ${data.director}` : ''}
+          </span>
+        </div>
+        <span className="review-badge found">✓</span>
+        <button className="review-remove" onClick={onRemove} title="rimuovi">
+          ×
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="review-item review-item--not-found">
+      <div className="review-poster review-poster--empty review-poster--miss">?</div>
+      <div className="review-info">
+        <span className="review-title">{result.inputTitle}</span>
+        <span className="review-meta not-found-label">non trovato su TMDB</span>
+      </div>
+      <span className="review-badge miss">✗</span>
+      <button className="review-remove" onClick={onRemove} title="rimuovi">
+        ×
+      </button>
+    </div>
+  );
+}
+
 export default function Onboarding({ onProfileBuilt }) {
+  const [phase, setPhase] = useState('input'); // 'input' | 'review'
   const [input, setInput] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
 
   const titles = input
     .split('\n')
     .map((t) => t.trim())
     .filter(Boolean);
-
   const count = titles.length;
   const tooFew = count > 0 && count < 5;
   const tooMany = count > 25;
-  const valid = count >= 5 && count <= 25;
+  const canSearch = count >= 5 && count <= 25;
 
-  const handleSubmit = async () => {
-    if (!valid) return;
+  const foundCount = searchResults.filter((r) => r.found).length;
+  const canSave = foundCount >= 3;
+
+  const handleSearch = async () => {
     setLoading(true);
     setError('');
-    setProgress('cerco i film su TMDB…');
-
     try {
       const res = await fetch('/api/search-movies', {
         method: 'POST',
@@ -40,25 +86,82 @@ export default function Onboarding({ onProfileBuilt }) {
         body: JSON.stringify({ titles }),
       });
       const data = await res.json();
-
       if (data.error) throw new Error(data.error);
-
-      const found = data.filter(Boolean);
-      if (found.length < 3) {
-        throw new Error(
-          'ho trovato pochi film. controlla i titoli e riprova.'
-        );
-      }
-
-      setProgress('profilo pronto!');
-      setTimeout(() => onProfileBuilt(found), 400);
+      setSearchResults(data);
+      setPhase('review');
     } catch (err) {
       setError(err.message || 'errore di connessione. riprova.');
+    } finally {
       setLoading(false);
-      setProgress('');
     }
   };
 
+  const handleRemove = (index) => {
+    setSearchResults((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSave = () => {
+    const profile = searchResults.filter((r) => r.found).map((r) => r.data);
+    onProfileBuilt(profile);
+  };
+
+  const handleBack = () => {
+    setPhase('input');
+    setError('');
+  };
+
+  // ── REVIEW PHASE ──────────────────────────────────
+  if (phase === 'review') {
+    return (
+      <div className="screen onboarding">
+        <div className="onboarding-inner">
+          <div className="onboarding-hero">
+            <h1 className="brand-title">curafilm</h1>
+            <p className="brand-sub">controlla il tuo profilo narrativo</p>
+          </div>
+
+          <div className="review-summary">
+            <span className="summary-found">{foundCount} trovati</span>
+            {searchResults.filter((r) => !r.found).length > 0 && (
+              <span className="summary-miss">
+                · {searchResults.filter((r) => !r.found).length} non trovati
+              </span>
+            )}
+            <span className="summary-hint">
+              (puoi rimuovere quelli sbagliati)
+            </span>
+          </div>
+
+          <div className="review-list">
+            {searchResults.map((result, i) => (
+              <ReviewItem
+                key={i}
+                result={result}
+                onRemove={() => handleRemove(i)}
+              />
+            ))}
+          </div>
+
+          {!canSave && (
+            <p className="msg error">
+              servono almeno 3 film trovati per costruire il profilo.
+            </p>
+          )}
+
+          <div className="review-actions">
+            <button className="btn-primary" onClick={handleSave} disabled={!canSave}>
+              salva profilo
+            </button>
+            <button className="btn-ghost" onClick={handleBack}>
+              ← modifica lista
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── INPUT PHASE ───────────────────────────────────
   return (
     <div className="screen onboarding">
       <div className="onboarding-inner">
@@ -69,7 +172,7 @@ export default function Onboarding({ onProfileBuilt }) {
 
         <div className="form-block">
           <label className="form-label">
-            inserisci i film e serie che ami
+            quali film e serie ami?
             <span className="form-hint">
               uno per riga &nbsp;·&nbsp; da 5 a 25 titoli
             </span>
@@ -89,28 +192,36 @@ export default function Onboarding({ onProfileBuilt }) {
 
           <div className="form-footer">
             <span
-              className={`count-badge${tooFew ? ' warn' : tooMany ? ' bad' : valid ? ' ok' : ''}`}
+              className={`count-badge${tooFew ? ' warn' : tooMany ? ' bad' : canSearch ? ' ok' : ''}`}
             >
               {count} {count === 1 ? 'titolo' : 'titoli'}
-              {tooFew && ' (min 5)'}
-              {tooMany && ' (max 25)'}
+              {tooFew && ' — aggiungi almeno 5'}
+              {tooMany && ' — massimo 25'}
             </span>
           </div>
 
           {error && <p className="msg error">{error}</p>}
-          {loading && progress && <p className="msg progress">{progress}</p>}
 
           <button
             className="btn-primary full"
-            onClick={handleSubmit}
-            disabled={!valid || loading}
+            onClick={handleSearch}
+            disabled={!canSearch || loading}
           >
-            {loading ? 'costruisco il profilo…' : 'costruisci il mio profilo'}
+            {loading ? (
+              <span className="btn-loading">
+                <span className="btn-dots">
+                  <span /><span /><span />
+                </span>
+                cerco su TMDB…
+              </span>
+            ) : (
+              'cerca i miei film →'
+            )}
           </button>
 
           <p className="form-note">
-            il profilo viene salvato nel browser e puoi esportarlo in JSON in
-            qualsiasi momento.
+            il profilo viene salvato nel browser e puoi esportarlo come JSON.
+            nessun account richiesto.
           </p>
         </div>
       </div>

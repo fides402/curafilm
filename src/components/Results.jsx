@@ -13,11 +13,16 @@ export default function Results({ recommendations, experience, onBack, onAgain }
     <div className="screen results">
       <div className="results-inner">
         <div className="results-head">
-          <h2 className="results-title">stasera guarda</h2>
-          <p className="results-sub">
-            selezionato per:{' '}
-            <em>{EXP_LABELS[experience] || experience}</em>
-          </p>
+          <div>
+            <h2 className="results-title">stasera guarda</h2>
+            <p className="results-sub">
+              <em>{EXP_LABELS[experience] || experience}</em>
+              <span className="results-count"> · 3 consigli</span>
+            </p>
+          </div>
+          <button className="btn-text-action" onClick={onAgain}>
+            altre idee →
+          </button>
         </div>
 
         <div className="cards-list">
@@ -26,12 +31,9 @@ export default function Results({ recommendations, experience, onBack, onAgain }
           ))}
         </div>
 
-        <div className="results-actions">
+        <div className="results-footer">
           <button className="btn-secondary" onClick={onBack}>
             cambia esperienza
-          </button>
-          <button className="btn-ghost" onClick={onAgain}>
-            altre idee →
           </button>
         </div>
       </div>

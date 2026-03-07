@@ -3,6 +3,7 @@ import Onboarding from './components/Onboarding';
 import ExperienceSelector from './components/ExperienceSelector';
 import LoadingScreen from './components/LoadingScreen';
 import Results from './components/Results';
+import ProfilePage from './components/ProfilePage';
 
 const PROFILE_KEY = 'curafilm_profile';
 
@@ -12,18 +13,19 @@ export default function App() {
   const [recommendations, setRecommendations] = useState([]);
   const [experience, setExperience] = useState(null);
   const [error, setError] = useState('');
+  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(PROFILE_KEY);
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem(PROFILE_KEY);
+      if (saved) {
         setProfile(JSON.parse(saved));
         setScreen('experience');
-      } catch {
-        localStorage.removeItem(PROFILE_KEY);
+      } else {
         setScreen('onboarding');
       }
-    } else {
+    } catch {
+      localStorage.removeItem(PROFILE_KEY);
       setScreen('onboarding');
     }
   }, []);
@@ -68,6 +70,7 @@ export default function App() {
     setProfile(null);
     setRecommendations([]);
     setExperience(null);
+    setShowProfile(false);
     setScreen('onboarding');
   };
 
@@ -89,34 +92,55 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <span className="wordmark">curafilm</span>
+        <button
+          className="wordmark-btn"
+          onClick={() => screen !== 'onboarding' && setScreen('experience')}
+          style={{ cursor: screen === 'onboarding' ? 'default' : 'pointer' }}
+        >
+          curafilm
+        </button>
+
         {profile && screen !== 'onboarding' && (
-          <div className="header-actions">
-            <button className="btn-ghost small" onClick={handleExportProfile}>
-              esporta profilo
-            </button>
-            <button className="btn-ghost small" onClick={handleResetProfile}>
-              cambia profilo
-            </button>
-          </div>
+          <button
+            className="btn-profile-toggle"
+            onClick={() => setShowProfile((v) => !v)}
+            aria-label="profilo"
+          >
+            <span className="profile-icon">◉</span>
+            <span className="profile-count">{profile.length}</span>
+          </button>
         )}
       </header>
 
       <main className="main">
-        {screen === 'onboarding' && (
-          <Onboarding onProfileBuilt={handleProfileBuilt} />
-        )}
-        {screen === 'experience' && (
-          <ExperienceSelector onSelect={handleExperienceSelected} error={error} />
-        )}
-        {screen === 'loading' && <LoadingScreen />}
-        {screen === 'results' && (
-          <Results
-            recommendations={recommendations}
-            experience={experience}
-            onBack={handleBackToExperience}
-            onAgain={handleTryAgain}
+        {showProfile && profile ? (
+          <ProfilePage
+            profile={profile}
+            onClose={() => setShowProfile(false)}
+            onReset={handleResetProfile}
+            onExport={handleExportProfile}
           />
+        ) : (
+          <>
+            {screen === 'onboarding' && (
+              <Onboarding onProfileBuilt={handleProfileBuilt} />
+            )}
+            {screen === 'experience' && (
+              <ExperienceSelector
+                onSelect={handleExperienceSelected}
+                error={error}
+              />
+            )}
+            {screen === 'loading' && <LoadingScreen />}
+            {screen === 'results' && (
+              <Results
+                recommendations={recommendations}
+                experience={experience}
+                onBack={handleBackToExperience}
+                onAgain={handleTryAgain}
+              />
+            )}
+          </>
         )}
       </main>
     </div>
