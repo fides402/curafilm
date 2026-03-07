@@ -5,46 +5,75 @@ import LoadingScreen from './components/LoadingScreen';
 import Results from './components/Results';
 import ProfilePage from './components/ProfilePage';
 
-const PROFILE_KEY = 'curafilm_profile';
+const PROFILE_KEY     = 'curafilm_profile';
+const TASTE_VEC_KEY   = 'curafilm_taste_vector';
 
 export default function App() {
-  const [screen, setScreen] = useState('init');
-  const [profile, setProfile] = useState(null);
+  const [screen, setScreen]               = useState('init');
+  const [profile, setProfile]             = useState(null);
+  const [tasteVector, setTasteVector]     = useState(null);
   const [recommendations, setRecommendations] = useState({ classics: [], recent: [] });
-  const [experience, setExperience] = useState(null);
-  const [error, setError] = useState('');
-  const [showProfile, setShowProfile] = useState(false);
+  const [currentMood, setCurrentMood]     = useState(null);   // { key, label, desc, vector }
+  const [error, setError]                 = useState('');
+  const [showProfile, setShowProfile]     = useState(false);
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(PROFILE_KEY);
-      if (saved) {
-        setProfile(JSON.parse(saved));
+      const savedProfile = localStorage.getItem(PROFILE_KEY);
+      if (savedProfile) {
+        setProfile(JSON.parse(savedProfile));
+        const savedTV = localStorage.getItem(TASTE_VEC_KEY);
+        if (savedTV) setTasteVector(JSON.parse(savedTV));
         setScreen('experience');
       } else {
         setScreen('onboarding');
       }
     } catch {
       localStorage.removeItem(PROFILE_KEY);
+      localStorage.removeItem(TASTE_VEC_KEY);
       setScreen('onboarding');
     }
   }, []);
+
+  // Analyze taste profile in background after onboarding
+  const analyzeTasteVector = async (newProfile) => {
+    try {
+      const res = await fetch('/api/profile-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: newProfile }),
+      });
+      const data = await res.json();
+      if (data.tasteVector) {
+        localStorage.setItem(TASTE_VEC_KEY, JSON.stringify(data.tasteVector));
+        setTasteVector(data.tasteVector);
+      }
+    } catch {
+      // non-blocking — recommendations fall back to neutral weights
+    }
+  };
 
   const handleProfileBuilt = (newProfile) => {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
     setProfile(newProfile);
     setScreen('experience');
+    analyzeTasteVector(newProfile); // fire-and-forget
   };
 
-  const handleExperienceSelected = async (exp) => {
-    setExperience(exp);
+  const handleMoodSelected = async (mood) => {
+    setCurrentMood(mood);
     setScreen('loading');
     setError('');
     try {
       const res = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile, experience: exp }),
+        body: JSON.stringify({
+          profile,
+          tasteVector,
+          mood: mood.label,
+          moodVector: mood.vector,
+        }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -57,7 +86,7 @@ export default function App() {
   };
 
   const handleTryAgain = () => {
-    if (experience) handleExperienceSelected(experience);
+    if (currentMood) handleMoodSelected(currentMood);
   };
 
   const handleBackToExperience = () => {
@@ -67,18 +96,18 @@ export default function App() {
 
   const handleResetProfile = () => {
     localStorage.removeItem(PROFILE_KEY);
+    localStorage.removeItem(TASTE_VEC_KEY);
     setProfile(null);
+    setTasteVector(null);
     setRecommendations({ classics: [], recent: [] });
-    setExperience(null);
+    setCurrentMood(null);
     setShowProfile(false);
     setScreen('onboarding');
   };
 
   const handleExportProfile = () => {
     if (!profile) return;
-    const blob = new Blob([JSON.stringify(profile, null, 2)], {
-      type: 'application/json',
-    });
+    const blob = new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -127,7 +156,7 @@ export default function App() {
             )}
             {screen === 'experience' && (
               <ExperienceSelector
-                onSelect={handleExperienceSelected}
+                onSelect={handleMoodSelected}
                 error={error}
               />
             )}
@@ -135,7 +164,7 @@ export default function App() {
             {screen === 'results' && (
               <Results
                 recommendations={recommendations}
-                experience={experience}
+                experience={currentMood?.label}
                 onBack={handleBackToExperience}
                 onAgain={handleTryAgain}
               />

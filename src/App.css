@@ -318,9 +318,9 @@ body {
 }
 
 /* ══════════════════════════════════════════════
-   EXPERIENCE SELECTOR
+   EXPERIENCE SELECTOR — MOOD GRID
 ══════════════════════════════════════════════ */
-.experience { max-width: 520px; }
+.experience { max-width: 640px; }
 
 .experience-inner {
   display: flex;
@@ -343,102 +343,53 @@ body {
   font-style: italic;
 }
 
-/* ── Free-text input ── */
-.exp-input-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
+/* ── Mood grid ── */
+.mood-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
 }
 
-.exp-textarea {
-  width: 100%;
+.mood-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1.1rem 1.2rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.1rem 1.25rem;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 300;
-  color: var(--text);
-  line-height: 1.7;
-  resize: none;
-  outline: none;
-  transition: border-color var(--t), box-shadow var(--t);
-}
-
-.exp-textarea:focus {
-  border-color: var(--text-dim);
-  box-shadow: 0 0 0 3px rgba(154, 144, 137, 0.12);
-}
-
-.exp-textarea::placeholder { color: var(--text-xdim); }
-
-.exp-input-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.exp-hint-key {
-  font-size: 0.72rem;
-  color: var(--text-xdim);
-  font-style: italic;
-}
-
-/* ── Suggestions ── */
-.suggestions-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding-top: 0.25rem;
-  border-top: 1px solid var(--border-soft);
-}
-
-.suggestions-label {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  letter-spacing: 0.02em;
-  text-transform: lowercase;
-}
-
-.suggestions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.suggestion-pill {
-  padding: 0.55rem 0.9rem;
-  background: transparent;
-  border: 1px solid var(--border-soft);
-  border-radius: 100px;
   cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.78rem;
+  text-align: left;
+  transition: border-color var(--t), box-shadow var(--t), background var(--t);
+  animation: fadeUp 0.35s ease both;
+}
+
+.mood-card:hover {
+  border-color: var(--text-dim);
+  box-shadow: var(--shadow-xs);
+}
+
+.mood-card--selected {
+  border-color: var(--text-soft);
+  background: var(--bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.mood-card-label {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.mood-card-desc {
+  font-size: 0.75rem;
   font-weight: 300;
   color: var(--text-soft);
-  text-align: left;
-  transition: background var(--t), border-color var(--t), color var(--t);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.suggestion-pill:hover {
-  background: var(--bg-card);
-  border-color: var(--text-dim);
-  color: var(--text);
-}
-
-.exp-arrow {
-  font-size: 0.85rem;
-  color: var(--text-xdim);
-  flex-shrink: 0;
-  transition: color var(--t), transform var(--t);
-}
-.exp-btn:hover .exp-arrow {
-  color: var(--text-soft);
-  transform: translateX(2px);
+  line-height: 1.5;
 }
 
 /* ══════════════════════════════════════════════
@@ -932,6 +883,7 @@ body {
 
   .brand-title          { font-size: 2.4rem; }
   .experience-question  { font-size: 1.6rem; }
+  .mood-grid            { grid-template-columns: 1fr; }
   .results-title        { font-size: 1.55rem; }
   .profile-title        { font-size: 1.5rem; }
 
