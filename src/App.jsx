@@ -68,7 +68,7 @@ export default function App() {
   const handleResetProfile = () => {
     localStorage.removeItem(PROFILE_KEY);
     setProfile(null);
-    setRecommendations([]);
+    setRecommendations({ classics: [], recent: [] });
     setExperience(null);
     setShowProfile(false);
     setScreen('onboarding');
