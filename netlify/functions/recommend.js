@@ -93,19 +93,27 @@ async function fetchPoster(title, year) {
 // Use 8b-instant for heavy structured generation (high daily limits, fast)
 // Use 70b only for the short explanation pass (quality matters there)
 async function groqCall(prompt, temperature, max_tokens, model = 'llama-3.1-8b-instant') {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature,
-      max_tokens,
-    }),
-  });
-  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || '';
+  for (let attempt = 0, delay = 2000; attempt < 4; attempt++, delay *= 2) {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+        max_tokens,
+      }),
+    });
+    if (res.status === 429) {
+      if (attempt === 3) throw new Error('Groq rate limit: riprova tra qualche minuto');
+      const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
+      await new Promise(r => setTimeout(r, retryAfter > 0 ? retryAfter * 1000 : delay));
+      continue;
+    }
+    if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -190,7 +198,7 @@ Return ONLY valid JSON, no markdown:
 }`;
 
     // llama-3.1-8b-instant: high daily limits, fast, good at structured JSON
-    const phase1Raw = await groqCall(phase1Prompt, 0.45, 3000, 'llama-3.1-8b-instant');
+    const phase1Raw = await groqCall(phase1Prompt, 0.45, 2200, 'llama-3.1-8b-instant');
     const phase1Match = phase1Raw.match(/\{[\s\S]*\}/);
     if (!phase1Match) throw new Error('candidate generation failed — no JSON in response');
     const candidates = JSON.parse(phase1Match[0]);

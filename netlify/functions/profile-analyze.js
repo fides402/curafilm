@@ -65,19 +65,28 @@ Restituisci SOLO JSON valido (nessun testo prima o dopo):
   "preferred_clusters": ["cluster1", "cluster2", "cluster3"]
 }`;
 
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.25,
-        max_tokens: 600,
-      }),
-    });
-
-    if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
-    const data = await res.json();
+    let data;
+    for (let attempt = 0, delay = 2000; attempt < 4; attempt++, delay *= 2) {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.25,
+          max_tokens: 600,
+        }),
+      });
+      if (res.status === 429) {
+        if (attempt === 3) throw new Error('Groq rate limit: riprova tra qualche minuto');
+        const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
+        await new Promise(r => setTimeout(r, retryAfter > 0 ? retryAfter * 1000 : delay));
+        continue;
+      }
+      if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
+      data = await res.json();
+      break;
+    }
     const text = data.choices?.[0]?.message?.content || '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('parse error');
