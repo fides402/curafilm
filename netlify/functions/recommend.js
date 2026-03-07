@@ -63,28 +63,26 @@ exports.handler = async (event) => {
 
     const prompt = `You are a sophisticated film and TV series curator with encyclopedic knowledge of world cinema across all eras.
 
-TASK: Based on this user's taste profile and their desired experience for tonight, recommend exactly 6 titles split into two groups.
-
-USER'S LOVED FILMS & SERIES:
-${profileLines}
-
-TONIGHT'S DESIRED EXPERIENCE (described freely by the user):
+TONIGHT'S REQUEST (this is the PRIMARY driver — find titles that precisely match this feeling/experience):
 "${experience}"
 
-GROUPS TO RETURN:
-1. "classics" — 3 titles from ANY era (can be from the 1940s to ~2018). Prioritize depth, artistic vision, narrative quality. Classics, cult films, masterpieces of world cinema all welcome.
-2. "recent" — 3 titles released in 2019 or later (up to 2025). Can include films and series currently available on streaming platforms.
+USER'S SEEN FILMS & SERIES (use ONLY to: avoid recommending these, and understand their cultural fluency):
+${profileLines}
+
+TASK: Recommend exactly 6 titles that best answer the user's specific request tonight. Split into two groups:
+1. "classics" — 3 titles from any era up to ~2018
+2. "recent" — 3 titles released 2019 or later (prefer 2022-2025)
 
 CURATION RULES:
-- Match the FEELING described by the user, not genre labels
-- Recommend based on narrative experience, directorial vision, atmosphere, rhythm — not genre
-- NEVER recommend titles already in the user's list
-- No pure comedies, no weak narratives, no mass entertainment without artistic merit
-- Each explanation: 2 evocative sentences. First: what makes it special for this feeling. Second: why it fits THIS user's specific taste. No spoilers. No plot summary.
-- Vary directors and countries across the 6 recommendations
-- The "recent" group should include truly recent titles (2022-2025) when possible
+- The user's REQUEST is everything. Start from the feeling/experience they described and find the titles that deliver exactly that — regardless of whether they resemble their existing list.
+- The existing list tells you their cultural fluency, NOT what to recommend. Do not gravitate toward titles "similar" to what they already know. If their request calls for something completely different from their usual taste, follow the request.
+- Match atmosphere, rhythm, emotional texture, narrative tension — not genre labels.
+- NEVER recommend titles already in their list.
+- Vary directors and countries across the 6 titles.
+- No weak narratives, no mass entertainment without artistic substance.
+- Each explanation: 2 sentences in Italian. First: why this title delivers exactly the feeling the user requested. Second: one specific element (scene, technique, atmosphere) that makes it distinctive. No plot summary, no spoilers.
 
-Titles to EXCLUDE: ${alreadySeen.slice(0, 200)}
+Titles to EXCLUDE: ${alreadySeen.slice(0, 300)}
 
 Return ONLY valid JSON, no markdown:
 {
@@ -94,7 +92,7 @@ Return ONLY valid JSON, no markdown:
       "year": "YYYY",
       "director": "Full Name",
       "runtime": "Xh Xm",
-      "explanation": "Two evocative sentences."
+      "explanation": "Due frasi evocative in italiano."
     }
   ],
   "recent": [
@@ -103,7 +101,7 @@ Return ONLY valid JSON, no markdown:
       "year": "YYYY",
       "director": "Full Name",
       "runtime": "Xh Xm or ~Xm/ep",
-      "explanation": "Two evocative sentences."
+      "explanation": "Due frasi evocative in italiano."
     }
   ]
 }`;
