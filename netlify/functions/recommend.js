@@ -1,6 +1,6 @@
 // Keys: override via Netlify env vars (GROQ_API_KEY, TMDB_API_KEY)
-const _a = 'gsk_5gv0P75Gf1PAzd4mKiPL';
-const _b = 'WGdyb3FYdJukqJqByJbC9E6vZOj2p5x9';
+const _a = 'gsk_cFkvPKqJGu5N4isjeMRN';
+const _b = 'WGdyb3FY4LKlQs0O1HPlVUlrMmDE7Lcn';
 const GROQ_KEY = process.env.GROQ_API_KEY || (_a + _b);
 const TMDB_KEY = process.env.TMDB_API_KEY || '85395f1f04d886e7ad3581f64d886026';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
