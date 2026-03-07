@@ -1,65 +1,84 @@
-const EXPERIENCES = [
-  {
-    id: 'mystery',
-    label: 'mistero continuo',
-    hint: 'curiosità che non si ferma mai',
-    symbol: '◎',
-  },
-  {
-    id: 'tension',
-    label: 'tensione narrativa',
-    hint: 'ogni scena ti trascina avanti',
-    symbol: '↑',
-  },
-  {
-    id: 'contemplative',
-    label: 'contemplativo e immersivo',
-    hint: 'cinema lento, atmosfera densa',
-    symbol: '〜',
-  },
-  {
-    id: 'worldbuilding',
-    label: 'scoperta di un mondo',
-    hint: 'un universo narrativo da esplorare',
-    symbol: '◻',
-  },
-  {
-    id: 'surprise',
-    label: 'sorprendimi',
-    hint: 'qualcosa di inatteso e distinto',
-    symbol: '✦',
-  },
+import { useState } from 'react';
+
+const SUGGESTIONS = [
+  'tensione che non molla, ogni scena mi trascina avanti',
+  'qualcosa di lento e visivo, un'atmosfera in cui perdermi',
+  'un mistero che si apre piano, non voglio sapere tutto subito',
+  'un mondo da scoprire, qualcosa di denso e costruito',
+  'sorprendimi con qualcosa che non avrei scelto da solo',
 ];
 
 export default function ExperienceSelector({ onSelect, error }) {
+  const [text, setText] = useState('');
+
+  const handleSubmit = () => {
+    const trimmed = text.trim();
+    if (trimmed.length < 3) return;
+    onSelect(trimmed);
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const useSuggestion = (s) => {
+    setText(s);
+  };
+
+  const canSubmit = text.trim().length >= 3;
+
   return (
     <div className="screen experience">
       <div className="experience-inner">
-        <h2 className="experience-question">
-          cosa vuoi vivere stasera?
-        </h2>
+        <div>
+          <h2 className="experience-question">cosa vuoi vivere stasera?</h2>
+          <p className="experience-sub">
+            descrivi liberamente — una sensazione, un'atmosfera, un desiderio narrativo
+          </p>
+        </div>
 
-        <div className="exp-list">
-          {EXPERIENCES.map((exp) => (
+        <div className="exp-input-block">
+          <textarea
+            className="exp-textarea"
+            placeholder="es. tensione che non molla, voglio essere trascinato avanti scena dopo scena…"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKey}
+            rows={4}
+            autoFocus
+          />
+          <div className="exp-input-footer">
+            <span className="exp-hint-key">↵ invio per cercare</span>
             <button
-              key={exp.id}
-              className="exp-btn"
-              onClick={() => onSelect(exp.id)}
+              className="btn-primary"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
             >
-              <span className="exp-symbol">{exp.symbol}</span>
-              <span className="exp-text">
-                <span className="exp-label">{exp.label}</span>
-                <span className="exp-hint">{exp.hint}</span>
-              </span>
-              <span className="exp-arrow">→</span>
+              trova →
             </button>
-          ))}
+          </div>
+        </div>
+
+        <div className="suggestions-block">
+          <p className="suggestions-label">oppure scegli un'idea</p>
+          <div className="suggestions-list">
+            {SUGGESTIONS.map((s, i) => (
+              <button
+                key={i}
+                className="suggestion-pill"
+                onClick={() => useSuggestion(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && (
-          <p className="msg error" style={{ marginTop: '1.5rem' }}>
-            {error}
-          </p>
+          <p className="msg error">{error}</p>
         )}
       </div>
     </div>

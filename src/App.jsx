@@ -10,7 +10,7 @@ const PROFILE_KEY = 'curafilm_profile';
 export default function App() {
   const [screen, setScreen] = useState('init');
   const [profile, setProfile] = useState(null);
-  const [recommendations, setRecommendations] = useState([]);
+  const [recommendations, setRecommendations] = useState({ classics: [], recent: [] });
   const [experience, setExperience] = useState(null);
   const [error, setError] = useState('');
   const [showProfile, setShowProfile] = useState(false);
@@ -62,7 +62,7 @@ export default function App() {
 
   const handleBackToExperience = () => {
     setScreen('experience');
-    setRecommendations([]);
+    setRecommendations({ classics: [], recent: [] });
   };
 
   const handleResetProfile = () => {

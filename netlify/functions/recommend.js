@@ -11,56 +11,15 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
 };
 
-const EXPERIENCE_MAP = {
-  mystery: {
-    name: 'mystery and continuous curiosity',
-    description:
-      'The narrative reveals information slowly. Every scene raises new questions. The viewer is engaged in a constant state of curious anticipation — never fully informed, always intrigued.',
-    prefer: 'psychological suspense, ambiguous narratives, layered storytelling, slow-burn revelation',
-    avoid: 'straightforward procedural mysteries with obvious solutions, generic thrillers',
-  },
-  tension: {
-    name: 'narrative tension and dramatic urgency',
-    description:
-      'High stakes and scenes that propel you forward. Emotional investment in characters, escalating consequences, tight scripts with no wasted moments.',
-    prefer: 'character-driven tension, consequential choices, films where every scene matters',
-    avoid: 'aimless narratives, slow films without dramatic arc, pure action spectacle',
-  },
-  contemplative: {
-    name: 'contemplative and immersive slow cinema',
-    description:
-      'Deliberate pacing, visual poetry, atmospheric depth. A film that demands presence and rewards patience. The kind that stays with you for days.',
-    prefer: 'art house, slow cinema, Tarkovsky-style, meditation on human experience, beautiful cinematography',
-    avoid: 'fast editing, commercial pacing, plot-driven entertainment, comedy',
-  },
-  worldbuilding: {
-    name: 'world building and universe exploration',
-    description:
-      'Rich universes where the world itself is a character. Discovery and immersion in a fully realized reality — fictional or documentary.',
-    prefer: 'distinctive settings, complex lore integrated elegantly, worlds with depth and internal logic',
-    avoid: 'generic settings, shallow world-building, standard locations',
-  },
-  surprise: {
-    name: 'total surprise — something unexpected and singular',
-    description:
-      'A film or series the user might not know or would not have chosen themselves. Something that defies easy categorization. A genuine curatorial discovery.',
-    prefer: 'cult classics, overlooked masterpieces, films that defy genre, singular artistic visions',
-    avoid: 'obvious mainstream choices, safe recommendations, anything predictable',
-  },
-};
-
 async function fetchPoster(title, year) {
   try {
-    const query = year ? `${title} ${year}` : title;
+    const q = year ? `${title} ${year}` : title;
     const res = await fetch(
-      `${TMDB_BASE}/search/multi?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}&language=en-US`
+      `${TMDB_BASE}/search/multi?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&include_adult=false`
     );
     const data = await res.json();
     const item = data.results?.[0];
-    return {
-      poster_path: item?.poster_path || null,
-      tmdb_id: item?.id || null,
-    };
+    return { poster_path: item?.poster_path || null, tmdb_id: item?.id || null };
   } catch {
     return { poster_path: null, tmdb_id: null };
   }
@@ -82,53 +41,72 @@ exports.handler = async (event) => {
       };
     }
 
-    const exp = EXPERIENCE_MAP[experience] || EXPERIENCE_MAP.surprise;
+    if (!experience || typeof experience !== 'string') {
+      return {
+        statusCode: 400,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'esperienza mancante' }),
+      };
+    }
 
     const profileLines = profile
       .map((m) => {
         const parts = [`"${m.title}" (${m.year || '?'})`];
         if (m.director) parts.push(`dir. ${m.director}`);
         if (m.genres?.length) parts.push(`[${m.genres.slice(0, 3).join(', ')}]`);
-        if (m.keywords?.length) parts.push(`keywords: ${m.keywords.slice(0, 5).join(', ')}`);
+        if (m.keywords?.length) parts.push(`kw: ${m.keywords.slice(0, 4).join(', ')}`);
         return '• ' + parts.join(' | ');
       })
       .join('\n');
 
-    const alreadySeen = profile.map((m) => m.title.toLowerCase());
+    const alreadySeen = profile.map((m) => m.title.toLowerCase()).join(', ');
 
-    const prompt = `You are a sophisticated film and TV series curator with encyclopedic knowledge of world cinema.
+    const prompt = `You are a sophisticated film and TV series curator with encyclopedic knowledge of world cinema across all eras.
 
-TASK: Based on this user's taste profile, recommend exactly 3 films or TV series for tonight.
+TASK: Based on this user's taste profile and their desired experience for tonight, recommend exactly 6 titles split into two groups.
 
 USER'S LOVED FILMS & SERIES:
 ${profileLines}
 
-TONIGHT'S DESIRED EXPERIENCE: ${exp.name}
-Description: ${exp.description}
-Prefer: ${exp.prefer}
-Avoid: ${exp.avoid}
+TONIGHT'S DESIRED EXPERIENCE (described freely by the user):
+"${experience}"
+
+GROUPS TO RETURN:
+1. "classics" — 3 titles from ANY era (can be from the 1940s to ~2018). Prioritize depth, artistic vision, narrative quality. Classics, cult films, masterpieces of world cinema all welcome.
+2. "recent" — 3 titles released in 2019 or later (up to 2025). Can include films and series currently available on streaming platforms.
 
 CURATION RULES:
-1. Recommend based on NARRATIVE EXPERIENCE (storytelling quality, directorial vision, atmosphere, rhythm) — NOT genre
-2. NEVER recommend anything already in the user's list
-3. Include content from any era — classics from the 1950s–80s are welcome and encouraged if fitting
-4. No pure comedies, no weak narratives, no mass entertainment without artistic merit
-5. Each recommendation must feel genuinely and specifically compatible with THIS user's taste
-6. The explanation must be evocative, written like a thoughtful friend recommending — no spoilers, focus on HOW it feels to watch
-7. Vary your recommendations (don't pick 3 films by the same director or from the same era)
+- Match the FEELING described by the user, not genre labels
+- Recommend based on narrative experience, directorial vision, atmosphere, rhythm — not genre
+- NEVER recommend titles already in the user's list
+- No pure comedies, no weak narratives, no mass entertainment without artistic merit
+- Each explanation: 2 evocative sentences. First: what makes it special for this feeling. Second: why it fits THIS user's specific taste. No spoilers. No plot summary.
+- Vary directors and countries across the 6 recommendations
+- The "recent" group should include truly recent titles (2022-2025) when possible
 
-Titles to EXCLUDE (already seen): ${alreadySeen.slice(0, 10).join(', ')}
+Titles to EXCLUDE: ${alreadySeen.slice(0, 200)}
 
-Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON:
-[
-  {
-    "title": "Exact Film Title",
-    "year": "YYYY",
-    "director": "Director Full Name",
-    "runtime": "Xh Xm",
-    "explanation": "Two evocative sentences. First sentence: what makes it special for this experience. Second sentence: why it fits THIS user's taste specifically. No plot. No spoilers."
-  }
-]`;
+Return ONLY valid JSON, no markdown:
+{
+  "classics": [
+    {
+      "title": "Exact Title",
+      "year": "YYYY",
+      "director": "Full Name",
+      "runtime": "Xh Xm",
+      "explanation": "Two evocative sentences."
+    }
+  ],
+  "recent": [
+    {
+      "title": "Exact Title",
+      "year": "YYYY",
+      "director": "Full Name",
+      "runtime": "Xh Xm or ~Xm/ep",
+      "explanation": "Two evocative sentences."
+    }
+  ]
+}`;
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -139,47 +117,52 @@ Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanati
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.75,
-        max_tokens: 800,
+        temperature: 0.72,
+        max_tokens: 1200,
       }),
     });
 
     if (!groqRes.ok) {
-      const errText = await groqRes.text();
-      throw new Error(`Groq error ${groqRes.status}: ${errText}`);
+      const t = await groqRes.text();
+      throw new Error(`Groq ${groqRes.status}: ${t}`);
     }
 
     const groqData = await groqRes.json();
-    const content = groqData.choices?.[0]?.message?.content || '[]';
+    const content = groqData.choices?.[0]?.message?.content || '{}';
 
-    // Extract JSON array from response (handles markdown code blocks too)
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error('Nessun JSON trovato nella risposta Groq');
+    // Extract JSON object from response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Nessun JSON nella risposta');
 
-    const recommendations = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(recommendations) || recommendations.length === 0) {
-      throw new Error('Array raccomandazioni vuoto');
-    }
+    const parsed = JSON.parse(jsonMatch[0]);
+    const classics = Array.isArray(parsed.classics) ? parsed.classics.slice(0, 3) : [];
+    const recent   = Array.isArray(parsed.recent)   ? parsed.recent.slice(0, 3)   : [];
 
-    // Enrich with TMDB poster in parallel
-    const enriched = await Promise.all(
-      recommendations.map(async (rec) => {
-        const tmdbData = await fetchPoster(rec.title, rec.year);
-        return { ...rec, ...tmdbData };
-      })
-    );
+    // Enrich both groups with TMDB posters in parallel
+    const enrich = (list) =>
+      Promise.all(
+        list.map(async (rec) => {
+          const tmdb = await fetchPoster(rec.title, rec.year);
+          return { ...rec, ...tmdb };
+        })
+      );
+
+    const [enrichedClassics, enrichedRecent] = await Promise.all([
+      enrich(classics),
+      enrich(recent),
+    ]);
 
     return {
       statusCode: 200,
       headers: CORS_HEADERS,
-      body: JSON.stringify(enriched.slice(0, 3)),
+      body: JSON.stringify({ classics: enrichedClassics, recent: enrichedRecent }),
     };
   } catch (err) {
     console.error('recommend error:', err);
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ error: 'Errore nella raccomandazione: ' + err.message }),
+      body: JSON.stringify({ error: 'Errore: ' + err.message }),
     };
   }
 };
