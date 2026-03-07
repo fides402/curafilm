@@ -135,10 +135,10 @@ FILM GIÀ VISTI — NON includere nessuno di questi:
 ${excludedList}
 
 COMPITO:
-Scegli esattamente 8 film perfetti per questo utente stasera:
-- 4 classici (anno ≤ 2018): epoche, paesi e registi diversi tra loro
-- 4 recenti (anno ≥ 2019): includi titoli del 2022-2025
-- Nessun regista ripetuto tra gli 8
+Scegli esattamente 6 film perfetti per questo utente stasera:
+- 3 classici (anno ≤ 2018): epoche, paesi e registi diversi tra loro
+- 3 recenti (anno ≥ 2019): includi titoli del 2022-2025
+- Nessun regista ripetuto tra i 6
 - Nessun titolo dalla lista dei già visti
 - Evita blockbuster commerciali senza identità autoriale
 - Solo titoli di produzioni realmente esistenti
@@ -174,7 +174,7 @@ Rispondi SOLO con JSON valido:
 }`;
 
     // 70b for holistic film knowledge + evocative Italian writing quality
-    const raw    = await groqJSON(prompt, 1800, 'llama-3.3-70b-versatile');
+    const raw    = await groqJSON(prompt, 1400, 'llama-3.3-70b-versatile');
     const result = JSON.parse(raw);
 
     const rawClassics = Array.isArray(result.classics) ? result.classics : [];
@@ -186,8 +186,8 @@ Rispondi SOLO con JSON valido:
 
     // TMDB enrichment + verification (prefer films TMDB can confirm)
     const [classics, recent] = await Promise.all([
-      enrichAndVerify(rawClassics, 3),
-      enrichAndVerify(rawRecent,   3),
+      enrichAndVerify(rawClassics.slice(0, 3), 3),
+      enrichAndVerify(rawRecent.slice(0, 3),   3),
     ]);
 
     return {

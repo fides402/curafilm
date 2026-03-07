@@ -64,6 +64,8 @@ export default function App() {
     setCurrentMood(mood);
     setScreen('loading');
     setError('');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 24000);
     try {
       const res = await fetch('/api/recommend', {
         method: 'POST',
@@ -74,14 +76,23 @@ export default function App() {
           mood: mood.label,
           moodVector: mood.vector,
         }),
+        signal: controller.signal,
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { throw new Error('risposta non valida dal server. riprova.'); }
       if (data.error) throw new Error(data.error);
       setRecommendations(data);
       setScreen('results');
     } catch (err) {
-      setError(err.message || 'qualcosa è andato storto. riprova.');
+      const msg = err.name === 'AbortError'
+        ? 'la ricerca ha impiegato troppo. riprova tra un momento.'
+        : (err.message || 'qualcosa è andato storto. riprova.');
+      setError(msg);
       setScreen('experience');
+    } finally {
+      clearTimeout(timeout);
     }
   };
 
