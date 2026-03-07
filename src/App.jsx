@@ -7,11 +7,13 @@ import ProfilePage from './components/ProfilePage';
 
 const PROFILE_KEY     = 'curafilm_profile';
 const TASTE_VEC_KEY   = 'curafilm_taste_vector';
+const WATCHED_KEY     = 'curafilm_watched';
 
 export default function App() {
   const [screen, setScreen]               = useState('init');
   const [profile, setProfile]             = useState(null);
   const [tasteVector, setTasteVector]     = useState(null);
+  const [watchedTitles, setWatchedTitles] = useState(null); // full Letterboxd import
   const [recommendations, setRecommendations] = useState({ classics: [], recent: [] });
   const [currentMood, setCurrentMood]     = useState(null);   // { key, label, desc, vector }
   const [error, setError]                 = useState('');
@@ -24,6 +26,8 @@ export default function App() {
         setProfile(JSON.parse(savedProfile));
         const savedTV = localStorage.getItem(TASTE_VEC_KEY);
         if (savedTV) setTasteVector(JSON.parse(savedTV));
+        const savedWatched = localStorage.getItem(WATCHED_KEY);
+        if (savedWatched) setWatchedTitles(JSON.parse(savedWatched));
         setScreen('experience');
       } else {
         setScreen('onboarding');
@@ -53,8 +57,12 @@ export default function App() {
     }
   };
 
-  const handleProfileBuilt = (newProfile) => {
+  const handleProfileBuilt = (newProfile, newWatchedTitles) => {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(newProfile));
+    if (newWatchedTitles) {
+      localStorage.setItem(WATCHED_KEY, JSON.stringify(newWatchedTitles));
+      setWatchedTitles(newWatchedTitles);
+    }
     setProfile(newProfile);
     setScreen('experience');
     analyzeTasteVector(newProfile); // fire-and-forget
@@ -75,6 +83,8 @@ export default function App() {
           tasteVector,
           mood: mood.label,
           moodVector: mood.vector,
+          // Send first 80 watched titles for exclusion (most recent from Letterboxd)
+          watchedTitles: watchedTitles?.length > 0 ? watchedTitles.slice(0, 80) : undefined,
         }),
         signal: controller.signal,
       });
@@ -108,8 +118,10 @@ export default function App() {
   const handleResetProfile = () => {
     localStorage.removeItem(PROFILE_KEY);
     localStorage.removeItem(TASTE_VEC_KEY);
+    localStorage.removeItem(WATCHED_KEY);
     setProfile(null);
     setTasteVector(null);
+    setWatchedTitles(null);
     setRecommendations({ classics: [], recent: [] });
     setCurrentMood(null);
     setShowProfile(false);

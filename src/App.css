@@ -201,6 +201,112 @@ body {
   line-height: 1.6;
 }
 
+/* ── Import tabs ── */
+.input-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-input);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.55rem 0.9rem;
+  background: transparent;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 300;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+  white-space: nowrap;
+}
+.tab-btn + .tab-btn {
+  border-left: 1px solid var(--border);
+}
+.tab-btn--active {
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 400;
+}
+.tab-btn:hover:not(.tab-btn--active) { color: var(--text-soft); }
+
+/* ── Drop zone ── */
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 180px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  cursor: pointer;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  transition: border-color var(--t), background var(--t);
+}
+.drop-zone:hover, .drop-zone--active {
+  border-color: var(--text-dim);
+  background: var(--bg-card);
+}
+
+.drop-icon {
+  font-size: 1.5rem;
+  color: var(--text-xdim);
+  line-height: 1;
+}
+.drop-label {
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+.drop-hint {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* ── Import summary ── */
+.import-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.1rem;
+  background: var(--found-bg);
+  border: 1px solid #C8DFC8;
+  border-radius: var(--radius-sm);
+}
+.import-count {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 1.4rem;
+  color: var(--found);
+  font-weight: 400;
+  line-height: 1;
+}
+.import-desc {
+  font-size: 0.82rem;
+  color: var(--text-soft);
+  flex: 1;
+}
+.import-reset {
+  background: none;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+  transition: color var(--t);
+}
+.import-reset:hover { color: var(--text-soft); }
+
 /* ── Review Phase ── */
 .review-summary {
   display: flex;

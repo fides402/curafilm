@@ -109,7 +109,7 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS_HEADERS, body: '' };
 
   try {
-    const { profile, tasteVector, mood, moodVector } = JSON.parse(event.body || '{}');
+    const { profile, tasteVector, mood, moodVector, watchedTitles } = JSON.parse(event.body || '{}');
 
     if (!Array.isArray(profile) || !profile.length) {
       return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'profilo mancante' }) };
@@ -118,9 +118,14 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'mood mancante' }) };
     }
 
-    const tasteDesc    = buildTasteDescription(tasteVector, profile);
-    const moodDesc     = describeMood(moodVector, mood);
-    const excludedList = profile.map(m => `"${m.title}"`).join(', ');
+    const tasteDesc = buildTasteDescription(tasteVector, profile);
+    const moodDesc  = describeMood(moodVector, mood);
+
+    // Use full watched list if available (Letterboxd import), else fall back to profile
+    const exclusionSource = Array.isArray(watchedTitles) && watchedTitles.length > 0
+      ? watchedTitles
+      : profile;
+    const excludedList = exclusionSource.map(m => `"${m.title}"`).join(', ');
 
     // Single 70b call: reasoning + selection + Italian explanations in one pass
     const prompt = `Sei un curatore cinematografico con conoscenza enciclopedica del cinema mondiale.
