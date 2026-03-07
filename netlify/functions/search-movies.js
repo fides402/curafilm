@@ -1,4 +1,4 @@
-const TMDB_KEY = process.env.TMDB_API_KEY;
+const TMDB_KEY = process.env.TMDB_API_KEY || '85395f1f04d886e7ad3581f64d886026';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 const CORS_HEADERS = {
