@@ -154,12 +154,12 @@ ${excludedTitles}
 SAMPLE OF THEIR TASTE (cultural fluency context only):
 ${profileSummary}
 
-TASK: Generate exactly 12 candidate film/series titles (7 classics + 5 recent).
+TASK: Generate exactly 10 candidate film/series titles (6 classics + 4 recent).
 DO NOT include any title from the seen list above.
 - Classics (year ≤ 2018): varied eras, directors, countries
 - Recent (year ≥ 2019): include 2022-2025 titles
 - Mix: thriller, sci-fi, noir, drama, horror, auteur — NO pure comedy
-- No director appearing twice across the 12 titles
+- No director appearing twice across the 10 titles
 - Avoid commercial blockbusters without artistic identity
 - All titles must be real productions
 
@@ -198,10 +198,24 @@ Return ONLY valid JSON, no markdown:
 }`;
 
     // llama-3.1-8b-instant: high daily limits, fast, good at structured JSON
-    const phase1Raw = await groqCall(phase1Prompt, 0.45, 2200, 'llama-3.1-8b-instant');
+    const phase1Raw = await groqCall(phase1Prompt, 0.45, 2600, 'llama-3.1-8b-instant');
     const phase1Match = phase1Raw.match(/\{[\s\S]*\}/);
     if (!phase1Match) throw new Error('candidate generation failed — no JSON in response');
-    const candidates = JSON.parse(phase1Match[0]);
+    let candidates;
+    try {
+      candidates = JSON.parse(phase1Match[0]);
+    } catch {
+      // JSON truncated: extract partial arrays via lenient regex
+      const classicsMatch = phase1Match[0].match(/"classics"\s*:\s*(\[[\s\S]*?\])\s*[,}]/);
+      const recentMatch   = phase1Match[0].match(/"recent"\s*:\s*(\[[\s\S]*?\])\s*[,}]/);
+      candidates = {
+        classics: classicsMatch ? JSON.parse(classicsMatch[1]) : [],
+        recent:   recentMatch   ? JSON.parse(recentMatch[1])   : [],
+      };
+      if (!candidates.classics.length && !candidates.recent.length) {
+        throw new Error('candidate generation failed — JSON truncated and unrecoverable');
+      }
+    }
 
     const allCandidates = [
       ...(Array.isArray(candidates.classics) ? candidates.classics : []).map(c => ({ ...c, era: 'classic' })),
