@@ -27,7 +27,12 @@ export default function RecommendationCard({ rec, index }) {
       )}
 
       <div className="card-main">
-        <h3 className="card-title">{rec.title}</h3>
+        <h3 className="card-title">
+          {rec.title}
+          {rec.type === 'series' && (
+            <span className="card-type-badge">serie</span>
+          )}
+        </h3>
         <div className="card-meta">
           {rec.year && <span>{rec.year}</span>}
           {rec.director && (

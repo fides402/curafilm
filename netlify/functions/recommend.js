@@ -48,9 +48,10 @@ async function groqJSON(prompt, max_tokens) {
 }
 
 // ── TMDB poster + verification ────────────────────────────────────────────────
-// Strategy: movie search with year → movie search without year → multi fallback
-async function fetchPoster(title, year) {
-  const base = `${TMDB_BASE}/search/movie?api_key=${TMDB_KEY}&include_adult=false`;
+// Handles both movies and TV series
+async function fetchPoster(title, year, type = 'movie') {
+  const mediaType = type === 'series' ? 'tv' : 'movie';
+  const base = `${TMDB_BASE}/search/${mediaType}?api_key=${TMDB_KEY}&include_adult=false`;
 
   const trySearch = async (query) => {
     const res = await fetch(`${base}&query=${encodeURIComponent(query)}`);
@@ -60,15 +61,19 @@ async function fetchPoster(title, year) {
   };
 
   try {
-    // 1. Movie search with year (most precise)
     if (year) {
       const r = await trySearch(`${title} ${year}`);
       if (r?.poster_path) return r;
     }
-    // 2. Movie search without year
     const r2 = await trySearch(title);
     if (r2?.poster_path) return r2;
-    // 3. Return whatever we have (even without poster, for tmdb_id)
+    // If TV search failed, try movie as fallback (and vice versa)
+    const fallbackType = mediaType === 'tv' ? 'movie' : 'tv';
+    const fallbackBase = `${TMDB_BASE}/search/${fallbackType}?api_key=${TMDB_KEY}&include_adult=false`;
+    const r3Res = await fetch(`${fallbackBase}&query=${encodeURIComponent(title)}`);
+    const r3Data = await r3Res.json();
+    const r3Item = r3Data.results?.[0];
+    if (r3Item?.poster_path) return { poster_path: r3Item.poster_path, tmdb_id: r3Item.id };
     return r2 || { poster_path: null, tmdb_id: null };
   } catch {
     return { poster_path: null, tmdb_id: null };
@@ -124,7 +129,7 @@ function describeMood(mv, moodLabel) {
 async function enrichAndVerify(list, maxFinal) {
   const enriched = await Promise.all(
     list.map(async (rec) => {
-      const tmdb = await fetchPoster(rec.title, rec.year);
+      const tmdb = await fetchPoster(rec.title, rec.year, rec.type);
       return { ...rec, ...tmdb };
     })
   );
@@ -139,7 +144,7 @@ export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS_HEADERS, body: '' };
 
   try {
-    const { profile, tasteVector, mood, moodVector, watchedTitles } = JSON.parse(event.body || '{}');
+    const { profile, tasteVector, mood, moodVector, watchedTitles, previouslyRecommended } = JSON.parse(event.body || '{}');
 
     if (!Array.isArray(profile) || !profile.length) {
       return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'profilo mancante' }) };
@@ -151,11 +156,20 @@ export const handler = async (event) => {
     const tasteDesc = buildTasteDescription(tasteVector, profile);
     const moodDesc  = describeMood(moodVector, mood);
 
-    // Use full watched list if available (Letterboxd import), else fall back to profile
+    // Build exclusion list: watched titles + previously recommended
     const exclusionSource = Array.isArray(watchedTitles) && watchedTitles.length > 0
       ? watchedTitles
       : profile;
-    const excludedList = exclusionSource.map(m => `"${m.title}"`).join(', ');
+    const watchedSet = new Set(exclusionSource.map(m => m.title?.toLowerCase()));
+    const prevRecTitles = Array.isArray(previouslyRecommended) ? previouslyRecommended : [];
+    // Merge and deduplicate
+    const allExcluded = [
+      ...exclusionSource.map(m => `"${m.title}"`),
+      ...prevRecTitles
+        .filter(t => !watchedSet.has(t?.toLowerCase()))
+        .map(t => `"${t}"`),
+    ];
+    const excludedList = allExcluded.join(', ');
 
     // Build dynamic hard-constraint block from actual profile data
     const tv = tasteVector;
@@ -203,16 +217,21 @@ ${patternBlock ? `3. ${patternBlock}` : ''}
 ${aestheticBlock ? `4. ${aestheticBlock}` : ''}
 ${epochBlock ? `5. ${epochBlock}` : ''}
 ${directorStyleBlock ? `6. ${directorStyleBlock}` : ''}
-- Nessun regista ripetuto tra i 6 film
-- Nessun titolo dalla lista dei già visti
-- Solo film realmente esistenti e verificabili
+- Nessun regista/showrunner ripetuto tra i 6 titoli
+- Nessun titolo dalla lista dei già visti / già consigliati
+- Solo titoli realmente esistenti e verificabili
 - 3 classici (anno ≤ 2018) da epoche e paesi diversi
 - 3 recenti (anno ≥ 2019), almeno 1 del 2022-2025
+- Il mix dei 6 deve includere ALMENO 2 serie TV (type "series") e ALMENO 2 film (type "movie")
+- Per le serie scegli serie con identità autoriale forte, non soap opera o procedurali banali
 
-Per ogni film scrivi una "explanation" in italiano di 2 frasi:
+Per ogni titolo scrivi una "explanation" in italiano di 2 frasi:
 - Frase 1: perché incarna il mood di stasera E rispecchia il gusto specifico di questo utente (cita elementi concreti del profilo)
 - Frase 2: un elemento estetico o narrativo che lo distingue e lo rende non ovvio
 - Tono da critico cinematografico, evocativo, zero riassunti di trama
+
+Per le serie: "runtime" deve indicare il formato (es. "3 stagioni · 8 ep/stagione" o "1 stagione · 6 ep").
+Per i film: "runtime" indica la durata (es. "2h 14m").
 
 Rispondi SOLO con JSON valido:
 {
@@ -231,8 +250,8 @@ Rispondi SOLO con JSON valido:
       "title": "Titolo Esatto",
       "year": "YYYY",
       "director": "Nome Cognome",
-      "type": "movie",
-      "runtime": "Xh Xm",
+      "type": "series",
+      "runtime": "2 stagioni · 8 ep",
       "explanation": "Due frasi in italiano."
     }
   ]

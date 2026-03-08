@@ -5,15 +5,17 @@ import LoadingScreen from './components/LoadingScreen';
 import Results from './components/Results';
 import ProfilePage from './components/ProfilePage';
 
-const PROFILE_KEY     = 'curafilm_profile';
-const TASTE_VEC_KEY   = 'curafilm_taste_vector';
-const WATCHED_KEY     = 'curafilm_watched';
+const PROFILE_KEY       = 'curafilm_profile';
+const TASTE_VEC_KEY     = 'curafilm_taste_vector';
+const WATCHED_KEY       = 'curafilm_watched';
+const RECOMMENDED_KEY   = 'curafilm_recommended'; // titles already suggested
 
 export default function App() {
   const [screen, setScreen]               = useState('init');
   const [profile, setProfile]             = useState(null);
   const [tasteVector, setTasteVector]     = useState(null);
   const [watchedTitles, setWatchedTitles] = useState(null); // full Letterboxd import
+  const [previouslyRecommended, setPreviouslyRecommended] = useState([]); // already suggested titles
   const [recommendations, setRecommendations] = useState({ classics: [], recent: [] });
   const [nowShowing, setNowShowing] = useState(null); // { cinema: [], streaming: [] }
   const [currentMood, setCurrentMood]     = useState(null);   // { key, label, desc, vector }
@@ -29,6 +31,8 @@ export default function App() {
         if (savedTV) setTasteVector(JSON.parse(savedTV));
         const savedWatched = localStorage.getItem(WATCHED_KEY);
         if (savedWatched) setWatchedTitles(JSON.parse(savedWatched));
+        const savedRec = localStorage.getItem(RECOMMENDED_KEY);
+        if (savedRec) setPreviouslyRecommended(JSON.parse(savedRec));
         setScreen('experience');
       } else {
         setScreen('onboarding');
@@ -99,6 +103,7 @@ export default function App() {
           mood: mood.label,
           moodVector: mood.vector,
           watchedTitles: watchedTitles?.length > 0 ? watchedTitles.slice(0, 80) : undefined,
+          previouslyRecommended: previouslyRecommended.length > 0 ? previouslyRecommended : undefined,
         }),
         signal: controller.signal,
       });
@@ -109,6 +114,16 @@ export default function App() {
       catch { throw new Error('risposta non valida dal server. riprova.'); }
       if (data.error) throw new Error(data.error);
       setRecommendations(data);
+
+      // Persist newly recommended titles (cap at 120 to avoid unbounded growth)
+      const newTitles = [
+        ...(data.classics || []).map(r => r.title),
+        ...(data.recent   || []).map(r => r.title),
+      ].filter(Boolean);
+      const merged = [...new Set([...previouslyRecommended, ...newTitles])].slice(-120);
+      localStorage.setItem(RECOMMENDED_KEY, JSON.stringify(merged));
+      setPreviouslyRecommended(merged);
+
       setScreen('results');
     } catch (err) {
       const msg = err.name === 'AbortError'
@@ -135,9 +150,11 @@ export default function App() {
     localStorage.removeItem(PROFILE_KEY);
     localStorage.removeItem(TASTE_VEC_KEY);
     localStorage.removeItem(WATCHED_KEY);
+    localStorage.removeItem(RECOMMENDED_KEY);
     setProfile(null);
     setTasteVector(null);
     setWatchedTitles(null);
+    setPreviouslyRecommended([]);
     setRecommendations({ classics: [], recent: [] });
     setCurrentMood(null);
     setShowProfile(false);
