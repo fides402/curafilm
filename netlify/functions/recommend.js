@@ -157,10 +157,36 @@ export const handler = async (event) => {
       : profile;
     const excludedList = exclusionSource.map(m => `"${m.title}"`).join(', ');
 
-    // Single 70b call: reasoning + selection + Italian explanations in one pass
-    const prompt = `Sei un curatore cinematografico con conoscenza enciclopedica del cinema mondiale.
+    // Build dynamic hard-constraint block from actual profile data
+    const tv = tasteVector;
+    const avoidBlock = tv?.avoidTraits?.length
+      ? `VIETATO ASSOLUTO — scarta qualsiasi film che rientra in queste categorie:\n${tv.avoidTraits.map(t => `• ${t}`).join('\n')}`
+      : 'Evita blockbuster commerciali senza identità autoriale.';
 
-PROFILO DEL GUSTO DELL'UTENTE:
+    const patternBlock = tv?.narrativePatterns?.length
+      ? `Pattern narrativi richiesti (ogni film deve incarnarne almeno uno):\n${tv.narrativePatterns.map(p => `• ${p}`).join('\n')}`
+      : '';
+
+    const aestheticBlock = tv?.aestheticProfile
+      ? `Estetica richiesta: ${tv.aestheticProfile}`
+      : '';
+
+    const epochBlock = tv?.temporalPreferences?.length
+      ? `Preferenze di epoca: ${tv.temporalPreferences.join(', ')} — privilegia queste epoche nelle scelte.`
+      : '';
+
+    const directorStyleBlock = tv?.referenceDirectors?.length
+      ? `Stile di riferimento: film nello stesso universo estetico di ${tv.referenceDirectors.join(', ')}.`
+      : '';
+
+    const genreBlock = tv?.dominantGenres?.length
+      ? `Generi dominanti del profilo: ${tv.dominantGenres.join(', ')} — i film scelti devono appartenervi o esserne affini.`
+      : '';
+
+    // Single 70b call: reasoning + selection + Italian explanations in one pass
+    const prompt = `Sei un curatore cinematografico con conoscenza enciclopedica del cinema mondiale. Il tuo compito è selezionare film con precisione chirurgica basandoti sul profilo specifico di questo utente — non consigli generici.
+
+PROFILO DETTAGLIATO DELL'UTENTE:
 ${tasteDesc}
 
 MOOD STASERA: "${mood}"
@@ -169,20 +195,24 @@ Stasera l'utente ${moodDesc}.
 FILM GIÀ VISTI — NON includere nessuno di questi:
 ${excludedList}
 
-COMPITO:
-Scegli esattamente 6 film perfetti per questo utente stasera:
-- 3 classici (anno ≤ 2018): epoche, paesi e registi diversi tra loro
-- 3 recenti (anno ≥ 2019): includi titoli del 2022-2025
-- Nessun regista ripetuto tra i 6
+REGOLE DI SELEZIONE — rispettale tutte senza eccezioni:
+
+1. ${avoidBlock}
+${genreBlock ? `2. ${genreBlock}` : ''}
+${patternBlock ? `3. ${patternBlock}` : ''}
+${aestheticBlock ? `4. ${aestheticBlock}` : ''}
+${epochBlock ? `5. ${epochBlock}` : ''}
+${directorStyleBlock ? `6. ${directorStyleBlock}` : ''}
+- Nessun regista ripetuto tra i 6 film
 - Nessun titolo dalla lista dei già visti
-- Evita blockbuster commerciali senza identità autoriale
-- Solo titoli di produzioni realmente esistenti
-- Mix di generi: thriller, sci-fi, noir, drama, horror, auteur — no commedia pura
+- Solo film realmente esistenti e verificabili
+- 3 classici (anno ≤ 2018) da epoche e paesi diversi
+- 3 recenti (anno ≥ 2019), almeno 1 del 2022-2025
 
 Per ogni film scrivi una "explanation" in italiano di 2 frasi:
-- Frase 1: perché si adatta perfettamente al mood di stasera E al gusto specifico di questo utente
-- Frase 2: un elemento atmosferico o narrativo che lo rende unico e non ovvio
-- Tono evocativo, niente riassunti di trama, niente spoiler
+- Frase 1: perché incarna il mood di stasera E rispecchia il gusto specifico di questo utente (cita elementi concreti del profilo)
+- Frase 2: un elemento estetico o narrativo che lo distingue e lo rende non ovvio
+- Tono da critico cinematografico, evocativo, zero riassunti di trama
 
 Rispondi SOLO con JSON valido:
 {
