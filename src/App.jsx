@@ -40,12 +40,15 @@ export default function App() {
   }, []);
 
   // Analyze taste profile in background after onboarding
-  const analyzeTasteVector = async (newProfile) => {
+  const analyzeTasteVector = async (newProfile, allWatchedTitles) => {
     try {
       const res = await fetch('/api/profile-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile: newProfile }),
+        body: JSON.stringify({
+          profile: newProfile,
+          watchedTitles: allWatchedTitles || undefined,
+        }),
       });
       const data = await res.json();
       if (data.tasteVector) {
@@ -65,7 +68,7 @@ export default function App() {
     }
     setProfile(newProfile);
     setScreen('experience');
-    analyzeTasteVector(newProfile); // fire-and-forget
+    analyzeTasteVector(newProfile, newWatchedTitles); // fire-and-forget
   };
 
   const handleMoodSelected = async (mood) => {

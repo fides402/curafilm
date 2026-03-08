@@ -54,13 +54,21 @@ async function fetchPoster(title, year) {
 }
 
 // ── Build taste description from whatever format tasteVector is in ────────────
-// Supports: new { tasteProfile, avoidTraits, referenceDirectors } OR old numeric object OR null
+// Supports: rich structural { tasteProfile, cinephileLevel, dominantGenres, ... }
+//           OR simple { tasteProfile, avoidTraits, referenceDirectors }
+//           OR old numeric object OR null
 function buildTasteDescription(tv, profile) {
   if (tv?.tasteProfile) {
-    let desc = tv.tasteProfile;
-    if (tv.avoidTraits?.length) desc += `\nEvita categoricamente: ${tv.avoidTraits.join(', ')}.`;
-    if (tv.referenceDirectors?.length) desc += `\nRegisti affini da esplorare: ${tv.referenceDirectors.join(', ')}.`;
-    return desc;
+    const lines = [];
+    if (tv.cinephileLevel) lines.push(`Livello cinefilo: ${tv.cinephileLevel}.`);
+    lines.push(tv.tasteProfile);
+    if (tv.dominantGenres?.length)     lines.push(`Generi dominanti: ${tv.dominantGenres.join(', ')}.`);
+    if (tv.narrativePatterns?.length)  lines.push(`Pattern narrativi cercati: ${tv.narrativePatterns.join(', ')}.`);
+    if (tv.aestheticProfile)           lines.push(`Estetica apprezzata: ${tv.aestheticProfile}.`);
+    if (tv.temporalPreferences?.length) lines.push(`Epoche preferite: ${tv.temporalPreferences.join(', ')}.`);
+    if (tv.avoidTraits?.length)        lines.push(`Evita categoricamente: ${tv.avoidTraits.join(', ')}.`);
+    if (tv.referenceDirectors?.length) lines.push(`Registi affini da esplorare: ${tv.referenceDirectors.join(', ')}.`);
+    return lines.join('\n');
   }
 
   // Old numeric format — convert qualitatively

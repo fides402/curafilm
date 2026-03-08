@@ -40,38 +40,69 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS_HEADERS, body: '' };
 
   try {
-    const { profile } = JSON.parse(event.body || '{}');
+    const { profile, watchedTitles } = JSON.parse(event.body || '{}');
     if (!Array.isArray(profile) || profile.length < 3) {
       return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'profilo non valido' }) };
     }
 
+    // TMDB-enriched profile: full metadata (up to 25 films)
     const profileText = profile
       .map(m => `• "${m.title}" (${m.year}) — ${m.director} | ${m.genres?.join(', ')}`)
       .join('\n');
 
-    const prompt = `Sei un critico cinematografico esperto. Analizza questi film amati dall'utente.
+    // Full watched list: title+year only, sampled to keep token count reasonable
+    // If Letterboxd import exists, take a representative spread (every Nth + first 50)
+    let extendedListText = '';
+    if (Array.isArray(watchedTitles) && watchedTitles.length > profile.length) {
+      // Remove titles already in enriched profile to avoid duplication
+      const enrichedSet = new Set(profile.map(m => m.title.toLowerCase()));
+      const extra = watchedTitles.filter(t => !enrichedSet.has(t.title?.toLowerCase()));
 
-FILM AMATI:
+      // Sample: take up to 200 titles spread across the full list
+      let sampled;
+      if (extra.length <= 200) {
+        sampled = extra;
+      } else {
+        const step = Math.floor(extra.length / 200);
+        sampled = extra.filter((_, i) => i % step === 0).slice(0, 200);
+      }
+
+      extendedListText = sampled
+        .map(t => `${t.title}${t.year ? ` (${t.year})` : ''}`)
+        .join(', ');
+    }
+
+    const prompt = `Sei un critico cinematografico esperto con visione strutturale. Analizza questa lista di film visti dall'utente per costruire un profilo cinematografico approfondito.
+
+FILM PREFERITI (con metadati completi):
 ${profileText}
+${extendedListText ? `\nALTRI FILM VISTI (lista estesa — ${watchedTitles?.length || 0} titoli totali, campione rappresentativo):\n${extendedListText}` : ''}
 
-Scrivi in italiano un profilo del gusto cinematografico di questa persona. Sii specifico su cosa emerge da questi titoli concreti, non generico.
+Costruisci un profilo strutturato del gusto di questo spettatore. Analizza con occhio da critico, non essere generico.
 
-Includi nel profilo:
-- Quale tipo di regia apprezza (autoriale, minimalista, barocca, di genere...)
-- Quale tipo di narrazione cerca (enigmatica, tesa, lenta, frammentata, densa...)
-- L'atmosfera prediletta
-- Cosa NON tollera (commedia, blockbuster commerciali, banalità narrativa...)
-- 3 registi che probabilmente amerà ma non sono già presenti nella lista
+Includi:
+1. Livello cinefilo reale (mainstream / moderato / alto / enciclopedico)
+2. Macro-generi dominanti con peso relativo (massimo 5)
+3. Pattern narrativi ricorrenti che cerca (max 3 pattern concreti)
+4. Profilo estetico: che tipo di regia e fotografia apprezza
+5. Preferenze per epoche cinematografiche
+6. Cosa NON tollera / evita
+7. Descrizione sintetica del gusto in 150-200 parole (tono da critico, in italiano)
+8. 3 registi che probabilmente ama molto ma non sono ancora presenti nella lista
 
 Rispondi con JSON:
 {
-  "tasteProfile": "profilo descrittivo in 150-200 parole in italiano",
-  "avoidTraits": ["tratto da evitare 1", "tratto da evitare 2", "tratto da evitare 3"],
+  "tasteProfile": "profilo descrittivo in 150-200 parole in italiano, tono critico",
+  "cinephileLevel": "enciclopedico",
+  "dominantGenres": ["horror autoriale", "sci-fi filosofica", "crime noir atmosferico"],
+  "narrativePatterns": ["discesa nella follia", "ambiguità morale senza risoluzione", "atmosfera > trama"],
+  "aestheticProfile": "regia autoriale fortemente stilizzata, fotografia con peso simbolico, tolleranza alta per ritmi lenti",
+  "temporalPreferences": ["anni 70", "2010-oggi", "cinema muto selettivo"],
+  "avoidTraits": ["commedia romantica", "blockbuster commerciali senza identità", "narrazione didascalica"],
   "referenceDirectors": ["Regista 1", "Regista 2", "Regista 3"]
 }`;
 
-    const raw = await groqJSON(prompt, 600, 'llama-3.1-8b-instant');
-    // tasteVector key kept for App.jsx localStorage compatibility
+    const raw = await groqJSON(prompt, 900, 'llama-3.3-70b-versatile');
     return {
       statusCode: 200,
       headers: CORS_HEADERS,
