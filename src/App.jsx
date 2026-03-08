@@ -78,27 +78,30 @@ export default function App() {
     setError('');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 24000);
+    // Fire now-showing in background — completely independent, never blocks results
+    fetch('/api/now-showing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile, tasteVector }),
+    }).then(async (nsRes) => {
+      if (!nsRes.ok) return;
+      const nsData = await nsRes.json();
+      if (!nsData.error) setNowShowing(nsData);
+    }).catch(() => {}); // silently ignore any error
+
     try {
-      // Fetch recommendations and now-showing in parallel
-      const [recRes, nsRes] = await Promise.all([
-        fetch('/api/recommend', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            profile,
-            tasteVector,
-            mood: mood.label,
-            moodVector: mood.vector,
-            watchedTitles: watchedTitles?.length > 0 ? watchedTitles.slice(0, 80) : undefined,
-          }),
-          signal: controller.signal,
+      const recRes = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile,
+          tasteVector,
+          mood: mood.label,
+          moodVector: mood.vector,
+          watchedTitles: watchedTitles?.length > 0 ? watchedTitles.slice(0, 80) : undefined,
         }),
-        fetch('/api/now-showing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ profile, tasteVector }),
-        }).catch(() => null), // non-blocking: don't fail recommendations if this errors
-      ]);
+        signal: controller.signal,
+      });
 
       const text = await recRes.text();
       let data;
@@ -106,17 +109,6 @@ export default function App() {
       catch { throw new Error('risposta non valida dal server. riprova.'); }
       if (data.error) throw new Error(data.error);
       setRecommendations(data);
-
-      // now-showing is non-blocking — never let it break the results screen
-      try {
-        if (nsRes?.ok) {
-          const nsData = await nsRes.json();
-          if (!nsData.error) setNowShowing(nsData);
-        }
-      } catch {
-        // silently ignore — section simply won't appear
-      }
-
       setScreen('results');
     } catch (err) {
       const msg = err.name === 'AbortError'
