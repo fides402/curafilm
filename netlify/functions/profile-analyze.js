@@ -9,10 +9,13 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
 };
 
-async function groqJSON(prompt, max_tokens, model) {
-  for (let attempt = 0, delay = 2000; attempt < 4; attempt++, delay *= 2) {
+async function groqCall(prompt, max_tokens, model, timeoutMs) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+  try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
+      signal: ac.signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
       body: JSON.stringify({
         model,
@@ -22,17 +25,22 @@ async function groqJSON(prompt, max_tokens, model) {
         response_format: { type: 'json_object' },
       }),
     });
-    if (res.status === 429) {
-      if (attempt === 3) throw new Error('Groq rate limit: riprova tra qualche minuto');
-      const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
-      await new Promise(r => setTimeout(r, retryAfter > 0 ? retryAfter * 1000 : delay));
-      continue;
-    }
+    if (res.status === 429) throw new Error('rate_limit');
     const text = await res.text();
-    if (!res.ok) throw new Error(`Groq ${res.status}: ${text}`);
+    if (!res.ok) throw new Error(`Groq ${res.status}`);
     return JSON.parse(text).choices?.[0]?.message?.content || '{}';
+  } finally {
+    clearTimeout(timer);
   }
-  throw new Error('Groq: max retries exceeded');
+}
+
+// Try 70b (richer analysis, 20s budget) then fall back to 8b
+async function groqJSON(prompt, max_tokens) {
+  try {
+    return await groqCall(prompt, max_tokens, 'llama-3.3-70b-versatile', 20000);
+  } catch {
+    return await groqCall(prompt, max_tokens, 'llama-3.1-8b-instant', 8000);
+  }
 }
 
 exports.handler = async (event) => {
