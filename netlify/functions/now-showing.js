@@ -84,7 +84,7 @@ async function tmdbFetch(path) {
   return res.json();
 }
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS_HEADERS, body: '' };
 

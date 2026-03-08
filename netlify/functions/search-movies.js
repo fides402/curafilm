@@ -89,7 +89,7 @@ async function batchProcess(titles, size = 5, delayMs = 250) {
   return results;
 }
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   }
