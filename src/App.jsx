@@ -107,9 +107,14 @@ export default function App() {
       if (data.error) throw new Error(data.error);
       setRecommendations(data);
 
-      if (nsRes?.ok) {
-        const nsData = await nsRes.json();
-        if (!nsData.error) setNowShowing(nsData);
+      // now-showing is non-blocking — never let it break the results screen
+      try {
+        if (nsRes?.ok) {
+          const nsData = await nsRes.json();
+          if (!nsData.error) setNowShowing(nsData);
+        }
+      } catch {
+        // silently ignore — section simply won't appear
       }
 
       setScreen('results');

@@ -99,9 +99,10 @@ exports.handler = async (event) => {
     const today = new Date().toISOString().slice(0, 10);
 
     // Fetch in parallel: now playing (cinema) + recent releases (streaming)
+    // No region filter — broader pool, avoids empty results for niche regions
     const [cinemaData, recentData] = await Promise.all([
-      tmdbFetch('/movie/now_playing?region=IT&page=1'),
-      tmdbFetch(`/discover/movie?region=IT&sort_by=popularity.desc&primary_release_date.gte=${cutoff}&primary_release_date.lte=${today}&vote_count.gte=10&page=1`),
+      tmdbFetch('/movie/now_playing?page=1'),
+      tmdbFetch(`/discover/movie?sort_by=popularity.desc&primary_release_date.gte=${cutoff}&primary_release_date.lte=${today}&vote_count.gte=5&page=1`),
     ]);
 
     const cinemaPool  = (cinemaData.results  || []).slice(0, 15);

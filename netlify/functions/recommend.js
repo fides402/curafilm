@@ -39,15 +39,28 @@ async function groqJSON(prompt, max_tokens, model) {
 }
 
 // ── TMDB poster + verification ────────────────────────────────────────────────
+// Strategy: movie search with year → movie search without year → multi fallback
 async function fetchPoster(title, year) {
-  try {
-    const q = year ? `${title} ${year}` : title;
-    const res = await fetch(
-      `${TMDB_BASE}/search/multi?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}&include_adult=false`
-    );
+  const base = `${TMDB_BASE}/search/movie?api_key=${TMDB_KEY}&include_adult=false`;
+
+  const trySearch = async (query) => {
+    const res = await fetch(`${base}&query=${encodeURIComponent(query)}`);
     const data = await res.json();
     const item = data.results?.[0];
-    return { poster_path: item?.poster_path || null, tmdb_id: item?.id || null };
+    return item ? { poster_path: item.poster_path || null, tmdb_id: item.id || null } : null;
+  };
+
+  try {
+    // 1. Movie search with year (most precise)
+    if (year) {
+      const r = await trySearch(`${title} ${year}`);
+      if (r?.poster_path) return r;
+    }
+    // 2. Movie search without year
+    const r2 = await trySearch(title);
+    if (r2?.poster_path) return r2;
+    // 3. Return whatever we have (even without poster, for tmdb_id)
+    return r2 || { poster_path: null, tmdb_id: null };
   } catch {
     return { poster_path: null, tmdb_id: null };
   }
