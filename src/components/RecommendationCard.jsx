@@ -1,7 +1,10 @@
-const TMDB_IMG = 'https://image.tmdb.org/t/p/w185';
+import { useState } from 'react';
+
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w342';
 
 export default function RecommendationCard({ rec, index }) {
-  const poster = rec.poster_path ? `${TMDB_IMG}${rec.poster_path}` : null;
+  const [imgFailed, setImgFailed] = useState(false);
+  const poster = rec.poster_path && !imgFailed ? `${TMDB_IMG}${rec.poster_path}` : null;
   const num = String(index + 1).padStart(2, '0');
 
   return (
@@ -9,7 +12,14 @@ export default function RecommendationCard({ rec, index }) {
       <div className="card-index">{num}</div>
 
       {poster ? (
-        <img className="card-poster" src={poster} alt={rec.title} loading="lazy" />
+        <img
+          className="card-poster"
+          src={poster}
+          alt={rec.title}
+          loading="eager"
+          decoding="async"
+          onError={() => setImgFailed(true)}
+        />
       ) : (
         <div className="card-poster card-poster--empty">
           <span>{rec.title?.[0] || '?'}</span>

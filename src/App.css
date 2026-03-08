@@ -750,6 +750,104 @@ body {
   padding-top: 0.25rem;
 }
 
+/* ── Now-showing section ── */
+.section-tag--now {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+
+.now-showing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.now-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  animation: fadeUp 0.4s ease both;
+  transition: box-shadow var(--t), border-color var(--t);
+}
+.now-card:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--text-xdim);
+}
+
+.now-card-poster {
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  background: var(--border-soft);
+}
+
+.now-card-poster--empty {
+  width: 100%;
+  aspect-ratio: 2/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border-soft);
+  font-family: 'DM Serif Display', serif;
+  font-size: 2rem;
+  color: var(--text-xdim);
+}
+
+.now-card-body {
+  padding: 0.75rem 0.85rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.now-card-venue {
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.now-card-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.now-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--text-soft);
+}
+
+.now-card-overview {
+  font-size: 0.75rem;
+  color: var(--text-soft);
+  line-height: 1.6;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.5rem;
+  margin-top: 0.15rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 520px) {
+  .now-showing-grid { grid-template-columns: 1fr; }
+}
+
 /* ══════════════════════════════════════════════
    PROFILE PAGE
 ══════════════════════════════════════════════ */

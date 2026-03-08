@@ -1,7 +1,11 @@
 import RecommendationCard from './RecommendationCard';
+import NowShowingCard from './NowShowingCard';
 
-export default function Results({ recommendations, experience, onBack, onAgain }) {
+export default function Results({ recommendations, nowShowing, experience, onBack, onAgain }) {
   const { classics = [], recent = [] } = recommendations;
+  const cinemaFilms   = nowShowing?.cinema   || [];
+  const streamingFilms = nowShowing?.streaming || [];
+  const hasNowShowing = cinemaFilms.length > 0 || streamingFilms.length > 0;
 
   return (
     <div className="screen results">
@@ -18,6 +22,24 @@ export default function Results({ recommendations, experience, onBack, onAgain }
             altre idee →
           </button>
         </div>
+
+        {/* ── Now showing section ── */}
+        {hasNowShowing && (
+          <section className="results-section">
+            <div className="section-label">
+              <span className="section-tag section-tag--now">in uscita</span>
+              <span className="section-since">ultimo mese · scelti per te</span>
+            </div>
+            <div className="now-showing-grid">
+              {cinemaFilms.map((film, i) => (
+                <NowShowingCard key={`cinema-${i}`} film={film} />
+              ))}
+              {streamingFilms.map((film, i) => (
+                <NowShowingCard key={`stream-${i}`} film={film} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {classics.length > 0 && (
           <section className="results-section">

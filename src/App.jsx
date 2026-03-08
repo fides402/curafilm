@@ -15,6 +15,7 @@ export default function App() {
   const [tasteVector, setTasteVector]     = useState(null);
   const [watchedTitles, setWatchedTitles] = useState(null); // full Letterboxd import
   const [recommendations, setRecommendations] = useState({ classics: [], recent: [] });
+  const [nowShowing, setNowShowing] = useState(null); // { cinema: [], streaming: [] }
   const [currentMood, setCurrentMood]     = useState(null);   // { key, label, desc, vector }
   const [error, setError]                 = useState('');
   const [showProfile, setShowProfile]     = useState(false);
@@ -78,25 +79,39 @@ export default function App() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 24000);
     try {
-      const res = await fetch('/api/recommend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile,
-          tasteVector,
-          mood: mood.label,
-          moodVector: mood.vector,
-          // Send first 80 watched titles for exclusion (most recent from Letterboxd)
-          watchedTitles: watchedTitles?.length > 0 ? watchedTitles.slice(0, 80) : undefined,
+      // Fetch recommendations and now-showing in parallel
+      const [recRes, nsRes] = await Promise.all([
+        fetch('/api/recommend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile,
+            tasteVector,
+            mood: mood.label,
+            moodVector: mood.vector,
+            watchedTitles: watchedTitles?.length > 0 ? watchedTitles.slice(0, 80) : undefined,
+          }),
+          signal: controller.signal,
         }),
-        signal: controller.signal,
-      });
-      const text = await res.text();
+        fetch('/api/now-showing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile, tasteVector }),
+        }).catch(() => null), // non-blocking: don't fail recommendations if this errors
+      ]);
+
+      const text = await recRes.text();
       let data;
       try { data = JSON.parse(text); }
       catch { throw new Error('risposta non valida dal server. riprova.'); }
       if (data.error) throw new Error(data.error);
       setRecommendations(data);
+
+      if (nsRes?.ok) {
+        const nsData = await nsRes.json();
+        if (!nsData.error) setNowShowing(nsData);
+      }
+
       setScreen('results');
     } catch (err) {
       const msg = err.name === 'AbortError'
@@ -116,6 +131,7 @@ export default function App() {
   const handleBackToExperience = () => {
     setScreen('experience');
     setRecommendations({ classics: [], recent: [] });
+    setNowShowing(null);
   };
 
   const handleResetProfile = () => {
@@ -190,6 +206,7 @@ export default function App() {
             {screen === 'results' && (
               <Results
                 recommendations={recommendations}
+                nowShowing={nowShowing}
                 experience={currentMood?.label}
                 onBack={handleBackToExperience}
                 onAgain={handleTryAgain}
